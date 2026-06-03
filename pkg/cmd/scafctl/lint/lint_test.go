@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/oakwood-commons/scafctl/pkg/cmd/flags"
 	pkglint "github.com/oakwood-commons/scafctl/pkg/lint"
 	"github.com/oakwood-commons/scafctl/pkg/logger"
 	"github.com/oakwood-commons/scafctl/pkg/settings"
@@ -49,9 +50,11 @@ func TestCommandLint_Flags(t *testing.T) {
 		defVal   string
 	}{
 		{"file", "file", ""},
-		{"output", "output", "table"},
+		{"output", "output", "auto"},
 		{"expression", "expression", ""},
 		{"severity", "severity", "info"},
+		{"interactive", "interactive", "false"},
+		{"where", "where", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -184,12 +187,12 @@ spec:
 	ioStreams, _, _ := terminal.NewTestIOStreams()
 	ctx := testContext(ioStreams)
 	opts := &Options{
-		File:       solPath,
-		Output:     "table",
-		Severity:   "info",
-		CliParams:  testCliParams(),
-		IOStreams:  ioStreams,
-		BinaryName: "scafctl",
+		File:           solPath,
+		KvxOutputFlags: flags.KvxOutputFlags{Output: "table"},
+		Severity:       "info",
+		CliParams:      testCliParams(),
+		IOStreams:      ioStreams,
+		BinaryName:     "scafctl",
 	}
 	err := runLint(ctx, opts)
 	assert.NoError(t, err)
@@ -215,12 +218,12 @@ spec:
 	ioStreams, outBuf, errBuf := terminal.NewTestIOStreams()
 	ctx := testContext(ioStreams)
 	opts := &Options{
-		File:       solPath,
-		Output:     "table",
-		Severity:   "info",
-		CliParams:  testCliParams(),
-		IOStreams:  ioStreams,
-		BinaryName: "scafctl",
+		File:           solPath,
+		KvxOutputFlags: flags.KvxOutputFlags{Output: "table"},
+		Severity:       "info",
+		CliParams:      testCliParams(),
+		IOStreams:      ioStreams,
+		BinaryName:     "scafctl",
 	}
 	err := runLint(ctx, opts)
 	// The null resolver should trigger lint findings. The error may come from
@@ -255,12 +258,12 @@ spec:
 	ioStreams, outBuf, _ := terminal.NewTestIOStreams()
 	ctx := testContext(ioStreams)
 	opts := &Options{
-		File:       solPath,
-		Output:     "json",
-		Severity:   "info",
-		CliParams:  testCliParams(),
-		IOStreams:  ioStreams,
-		BinaryName: "scafctl",
+		File:           solPath,
+		KvxOutputFlags: flags.KvxOutputFlags{Output: "json"},
+		Severity:       "info",
+		CliParams:      testCliParams(),
+		IOStreams:      ioStreams,
+		BinaryName:     "scafctl",
 	}
 	err := runLint(ctx, opts)
 	assert.NoError(t, err)
@@ -292,12 +295,12 @@ spec:
 	ioStreams, _, _ := terminal.NewTestIOStreams()
 	ctx := testContext(ioStreams)
 	opts := &Options{
-		File:       solPath,
-		Output:     "quiet",
-		Severity:   "info",
-		CliParams:  testCliParams(),
-		IOStreams:  ioStreams,
-		BinaryName: "scafctl",
+		File:           solPath,
+		KvxOutputFlags: flags.KvxOutputFlags{Output: "quiet"},
+		Severity:       "info",
+		CliParams:      testCliParams(),
+		IOStreams:      ioStreams,
+		BinaryName:     "scafctl",
 	}
 	err := runLint(ctx, opts)
 	assert.NoError(t, err)
@@ -309,12 +312,12 @@ func TestRunLint_FileNotFound(t *testing.T) {
 	ioStreams, _, _ := terminal.NewTestIOStreams()
 	ctx := testContext(ioStreams)
 	opts := &Options{
-		File:       "/nonexistent/solution.yaml",
-		Output:     "table",
-		Severity:   "info",
-		CliParams:  testCliParams(),
-		IOStreams:  ioStreams,
-		BinaryName: "scafctl",
+		File:           "/nonexistent/solution.yaml",
+		KvxOutputFlags: flags.KvxOutputFlags{Output: "table"},
+		Severity:       "info",
+		CliParams:      testCliParams(),
+		IOStreams:      ioStreams,
+		BinaryName:     "scafctl",
 	}
 	err := runLint(ctx, opts)
 	assert.Error(t, err)

@@ -58,13 +58,12 @@ func FilterBySeverity(result *Result, minSeverity string) *Result {
 
 // Options holds command flags and settings.
 type Options struct {
-	BinaryName string
-	File       string
-	Output     string
-	Severity   string
-	Expression string
-	CliParams  *settings.Run
-	IOStreams  *terminal.IOStreams
+	BinaryName     string
+	File           string
+	Severity       string
+	KvxOutputFlags flags.KvxOutputFlags
+	CliParams      *settings.Run
+	IOStreams      *terminal.IOStreams
 }
 
 // CommandLint creates the lint command.
@@ -104,11 +103,14 @@ func CommandLint(cliParams *settings.Run, ioStreams *terminal.IOStreams, path st
 			    - long-timeout        Timeout exceeds recommended maximum
 			    - unused-finally      Finally actions with no regular actions
 
-			OUTPUT FORMATS:
-			  table   Human-readable table (default)
+			SOME OUTPUT FORMATS:
+			  table   Human-readable bordered table
 			  json    JSON output for tooling integration
 			  yaml    YAML output
 			  quiet   Exit code only (0=clean, 1=issues found)
+
+			  Use -o to select a format, -i for interactive exploration,
+			  -e for CEL expression filtering, -w for per-finding filters.
 		`),
 		Example: strings.ReplaceAll(heredoc.Doc(`
 			# Lint a solution file
@@ -144,9 +146,8 @@ func CommandLint(cliParams *settings.Run, ioStreams *terminal.IOStreams, path st
 	}
 
 	cmd.Flags().StringVarP(&options.File, "file", "f", "", "Solution file path (auto-discovered if not provided, use '-' for stdin)")
-	cmd.Flags().StringVarP(&options.Output, "output", "o", "table", "Output format: table, json, yaml, quiet")
-	cmd.Flags().StringVarP(&options.Expression, "expression", "e", "", "CEL expression to filter/transform output data (e.g., '_.findings')")
 	cmd.Flags().StringVar(&options.Severity, "severity", "info", "Minimum severity to report: error, warning, info")
+	flags.AddKvxOutputFlagsToStruct(cmd, &options.KvxOutputFlags)
 
 	lintPath := fmt.Sprintf("%s/%s", path, cmd.Use)
 	cmd.AddCommand(CommandRules(cliParams, ioStreams, lintPath))
@@ -225,24 +226,21 @@ func runLint(ctx context.Context, opts *Options) error {
 	result := pkglint.Solution(sol, opts.File, registry)
 	result = pkglint.FilterBySeverity(result, opts.Severity)
 
-	if opts.Output == "quiet" {
+	if opts.KvxOutputFlags.Output == "quiet" {
 		if result.ErrorCount > 0 {
 			return exitcode.WithCode(fmt.Errorf("found %d errors", result.ErrorCount), exitcode.ValidationFailed)
 		}
 		return nil
 	}
 
-	kvxOpts := flags.NewKvxOutputOptionsFromFlags(
-		opts.Output,
-		false,
-		opts.Expression,
+	kvxOpts := flags.ToKvxOutputOptions(&opts.KvxOutputFlags,
+		kvx.WithIOStreams(opts.IOStreams),
 		kvx.WithOutputContext(ctx),
 		kvx.WithOutputNoColor(opts.CliParams.NoColor),
 		kvx.WithOutputAppName(opts.BinaryName+" lint"),
 		kvx.WithOutputColumnHints(findingsColumnHints()),
 		kvx.WithOutputColumnOrder([]string{"severity", "ruleName", "location", "message"}),
 	)
-	kvxOpts.IOStreams = opts.IOStreams
 
 	// For table output, project findings to the four visible columns so
 	// the columnar renderer sees exactly 4 fields (not the full 9-field
@@ -250,7 +248,7 @@ func runLint(ctx context.Context, opts *Options) error {
 	// For structured formats (json/yaml), emit the full result with all
 	// fields and summary counts.
 	var outputData any = result
-	if !kvx.IsStructuredFormat(kvxOpts.Format) && opts.Expression == "" {
+	if !kvx.IsStructuredFormat(kvxOpts.Format) && opts.KvxOutputFlags.Expression == "" {
 		if len(result.Findings) == 0 {
 			w := writer.FromContext(ctx)
 			w.Success("No lint issues found.")
